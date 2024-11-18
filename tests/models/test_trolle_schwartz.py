@@ -4,6 +4,7 @@ import numpy as np
 from src.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
+    ForwardParameters,
     SpotParameters,
     VolatilityParameters,
 )
@@ -23,9 +24,11 @@ def trolle_schwartz_params():
     }
 
     spot_params = {
-        "value": 100.0,  # S0
+        "value": 100.0,  # currently redundant TODO: infer from forward or viceveresa
         "volatility": 1,
     }
+
+    forward_params = {"value": 110}
 
     cost_of_carry_params = {
         "alpha": 0.1,
@@ -41,6 +44,7 @@ def trolle_schwartz_params():
     return TrolleSchwartzParameters(
         volatility=VolatilityParameters(**volatility_params),
         spot=SpotParameters(**spot_params),
+        forward=ForwardParameters(**forward_params),
         cost_of_carry=CostOfCarryParameters(**cost_of_carry_params),
         correlation=CorrelationParameters(**correlation_params),
     )
