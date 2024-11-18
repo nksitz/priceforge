@@ -1,0 +1,4 @@
+mpmath
+numpy
+pydantic
+scipy
