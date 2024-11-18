@@ -1,2 +1,25 @@
+[project]
+name = "priceforge"
+version = "0.0.1"
+authors = [
+  { name="Nicolò Sitzia", email="nksitz@gmail.com" },
+]
+description = "A lightweight derivatives pricing library"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/nksitz/priceforge"
+Issues = "https://github.com/nksitz/priceforge/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [tool.mypy]
 ignore_missing_imports = true
