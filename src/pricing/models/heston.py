@@ -1,7 +1,6 @@
 import numpy as np
 from pydantic import BaseModel
 from typing import Optional, Callable
-from scipy.integrate import solve_ivp
 from src.pricing.models.ode_solver import OdeSolver, RootSign
 from src.pricing.models.parameters import (
     CorrelationParameters,
@@ -10,7 +9,6 @@ from src.pricing.models.parameters import (
     VolatilityParameters,
 )
 from src.pricing.models.protocol import CharacteristicFunctionODEs, PricingModel
-from src.pricing.models.trolle_schwartz import TrolleSchwartzODEs
 
 
 class HestonParameters(BaseModel):

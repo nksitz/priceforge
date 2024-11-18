@@ -11,7 +11,6 @@ from src.pricing.models.heston import (
     RateParameters,
     CorrelationParameters,
 )
-from src.pricing.models.ode_solver import OdeSolver
 
 
 def test_black_scholes():
@@ -29,7 +28,6 @@ def test_black_scholes():
             volatility=vol_params,
             correlation=corr_params,
         ),
-        # OdeSolver.NUMERICAL,
     )
 
     engine = FourierEngine(method=FourierMethod.CARR_MADAN)

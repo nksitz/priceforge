@@ -1,13 +1,12 @@
 from typing import Callable, Optional
 import numpy as np
-from numpy.testing import assert_
 from pydantic import BaseModel
 
-from src.models.contracts import Option
 from src.pricing.models.ode_solver import OdeSolver, RootSign
 from src.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
+    ForwardParameters,
     SpotParameters,
     VolatilityParameters,
 )
@@ -30,6 +29,7 @@ class SolverParameters(BaseModel):
 
 class TrolleSchwartzParameters(BaseModel):
     spot: SpotParameters
+    forward: ForwardParameters
     volatility: VolatilityParameters
     cost_of_carry: CostOfCarryParameters
     correlation: CorrelationParameters
@@ -118,7 +118,7 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
         cost_of_carry = self.params.cost_of_carry
         correlation = self.params.correlation
         beta_pm = self.solver_params.beta_root_sign.value
-        delta_pm = self.solver_params.omega_root_sign.value
+        omega_pm = self.solver_params.omega_root_sign.value
 
         c_0 = -volatility.mean_reversion_rate + 1j * u * volatility.volatility * (
             spot.volatility * correlation.spot_vol
@@ -146,7 +146,7 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
                 spot.volatility**2
                 + (cost_of_carry.alpha / cost_of_carry.gamma) ** 2
                 + 2
-                * correlation.spot_vol
+                * correlation.spot_cost_of_carry
                 * spot.volatility
                 * cost_of_carry.alpha
                 / cost_of_carry.gamma
@@ -182,30 +182,30 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
         )
 
         beta = (beta_pm * (c_0**2 - 4 * d_0) ** 0.5 - c_0) / (2 * cost_of_carry.gamma)
-        delta = delta_pm * cost_of_carry.gamma / (c_1**2 - 4 * d_2) ** 0.5
-        mu = -0.5 * (1 + c_1 * delta / cost_of_carry.gamma)
+        omega = omega_pm * cost_of_carry.gamma / (c_1**2 - 4 * d_2) ** 0.5
+        mu = -0.5 * (1 + c_1 * omega / cost_of_carry.gamma)
 
         a = (
             -mu * (c_0 / cost_of_carry.gamma + 1 + 2 * beta)
-            - beta * c_1 * delta / cost_of_carry.gamma
-            - d_1 * delta / cost_of_carry.gamma**2
+            - beta * c_1 * omega / cost_of_carry.gamma
+            - d_1 * omega / cost_of_carry.gamma**2
         )
         b = 2 * beta + 1 + c_0 / cost_of_carry.gamma
 
-        z = np.exp(-cost_of_carry.gamma * (time_to_option_expiry)) / delta
+        z = np.exp(-cost_of_carry.gamma * (time_to_option_expiry)) / omega
 
-        inv_delta = 1 / delta
+        inv_omega = 1 / omega
 
-        kumm = kummer(a, b, inv_delta)
-        kumm1 = kummer(a + 1, b + 1, inv_delta)
-        tric = tricomi(a, b, inv_delta)
-        tric1 = tricomi(a + 1, b + 1, inv_delta)
+        kumm = kummer(a, b, inv_omega)
+        kumm1 = kummer(a + 1, b + 1, inv_omega)
+        tric = tricomi(a, b, inv_omega)
+        tric1 = tricomi(a + 1, b + 1, inv_omega)
 
         k1 = 1
         k2 = (
             -k1
-            * ((beta * delta + mu) * kumm + a / b * kumm1)
-            / ((beta * delta + mu) * tric - a * tric1)
+            * ((beta * omega + mu) * kumm + a / b * kumm1)
+            / ((beta * omega + mu) * tric - a * tric1)
         )
 
         g0 = k1 * kumm + k2 * tric
@@ -223,12 +223,13 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
             * volatility.long_term_mean
             / volatility.volatility**2
             * (
-                beta * mpmath.log(delta * z)
-                + mu * (z - inv_delta)
+                beta * mpmath.log(omega * z)
+                + mu * (z - inv_omega)
                 + mpmath.log(gend)
                 - mpmath.log(g0)
             )
         )
+        upper_c, upper_d = complex(upper_c), complex(upper_d)
         return upper_c, upper_d
 
 
@@ -267,6 +268,6 @@ class TrolleSchwartzModel(PricingModel):
         psi = np.exp(
             upper_c
             + upper_d * self.params.volatility.value**2
-            + 1j * u * np.log(self.params.spot.value)
+            + 1j * u * np.log(self.params.forward.value)
         )
         return psi

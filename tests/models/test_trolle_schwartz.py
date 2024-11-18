@@ -53,16 +53,16 @@ def trolle_schwartz_params():
             1 + 0j,
             1.0,
             1.1,
-            -0.010136533433534229 + 0.010942165437709818j,
-            -0.27794640174810825 - 0.23530826448771733j,
+            -0.04897909532622555 - 0.046639926815126305j,
+            -0.26509492054713807 - 0.24652620931102875j,
         ),
-        (0 + 1j, 1.0, 1.2, 0.0004681787176479442 + 0j, 0.5663411679884517 - 0j),
+        (0 + 1j, 1.0, 1.2, 0.09836580506738636 + 0j, 0.5350058361782889 - 0j),
         (
             1 + 1j,
             1.0,
             1.1,
-            -0.011746098211828909 - 0.011167489586579812j,
-            0.19955686710770465 - 0.8664618407941536j,
+            0.04480989821221175 - 0.1486901362708171j,
+            0.2303150796549305 - 0.8104660870819035j,
         ),
     ],
 )
@@ -79,21 +79,32 @@ def test_uppercase_terms(
     numerical_c, numerical_d = ts_odes.numerical_solution(
         u, time_to_option_expiry, time_to_underlying_expiry
     )
-
     analytical_c, analytical_d = ts_odes.analytical_soluton(
         u, time_to_option_expiry, time_to_underlying_expiry
     )
 
     np.testing.assert_almost_equal(
-        numerical_c,
-        analytical_c,
+        analytical_d,
+        expected_d,
         decimal=8,
-        err_msg=f"Numerical solution C mismatch for u={u}, time_to_option_expiry={time_to_option_expiry}, time_to_underlying_expiry={time_to_underlying_expiry}",
+        err_msg=f"Analytical solution D mismatch for u={u}, time_to_option_expiry={time_to_option_expiry}, time_to_underlying_expiry={time_to_underlying_expiry}",
+    )
+    np.testing.assert_almost_equal(
+        analytical_c,
+        expected_c,
+        decimal=8,
+        err_msg=f"Analytical solution C mismatch for u={u}, time_to_option_expiry={time_to_option_expiry}, time_to_underlying_expiry={time_to_underlying_expiry}",
     )
 
     np.testing.assert_almost_equal(
         numerical_d,
-        analytical_d,
+        expected_d,
         decimal=8,
         err_msg=f"Numerical solution D mismatch for u={u}, time_to_option_expiry={time_to_option_expiry}, time_to_underlying_expiry={time_to_underlying_expiry}",
+    )
+    np.testing.assert_almost_equal(
+        numerical_c,
+        expected_c,
+        decimal=8,
+        err_msg=f"Numerical solution C mismatch for u={u}, time_to_option_expiry={time_to_option_expiry}, time_to_underlying_expiry={time_to_underlying_expiry}",
     )
