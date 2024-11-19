@@ -14,14 +14,19 @@ class ClosedFormModel(Protocol):
 
 
 class StochasticProcess(Protocol):
-    def initial_value(self) -> float: ...
+    def correlation_matrix(self) -> np.ndarray: ...
+
+    def dimensions(self) -> int:
+        return self.correlation_matrix().shape[0]
+
+    def initial_state(self) -> np.ndarray: ...
 
     def drift(
-        self, time: float, current_value: np.ndarray
+        self, time: float, current_state: np.ndarray
     ) -> Union[float, np.ndarray]: ...
 
     def volatility(
-        self, time: float, current_value: np.ndarray
+        self, time: float, current_state: np.ndarray
     ) -> Union[float, np.ndarray]: ...
 
 

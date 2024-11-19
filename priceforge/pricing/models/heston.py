@@ -1,6 +1,6 @@
 import numpy as np
 from pydantic import BaseModel
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 from priceforge.pricing.models.ode_solver import OdeSolver, RootSign
 from priceforge.pricing.models.parameters import (
     CorrelationParameters,
@@ -8,7 +8,101 @@ from priceforge.pricing.models.parameters import (
     SpotParameters,
     VolatilityParameters,
 )
-from priceforge.pricing.models.protocol import CharacteristicFunctionODEs, PricingModel
+from priceforge.pricing.models.protocol import (
+    CharacteristicFunctionODEs,
+    PricingModel,
+    SimulatableModel,
+    StochasticProcess,
+)
+
+
+class OrnsteinUhlenbeckProcess(StochasticProcess):
+    def __init__(
+        self,
+        initial_variance: float,
+        mean_reversion_rate: float,
+        long_term_mean: float,
+        vol_of_vol: float,
+    ):
+        self.initial_variance = initial_variance
+        self.mean_reversion_rate = mean_reversion_rate
+        self.long_term_mean = long_term_mean
+        self.vol_of_vol = vol_of_vol
+
+    def correlation_matrix(self) -> np.ndarray:
+        return np.array([1])
+
+    def initial_state(self) -> np.ndarray:
+        return np.array(self.initial_variance)
+
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
+        return self.mean_reversion_rate * (self.long_term_mean - current_state)
+
+    def volatility(
+        self, time: float, current_state: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        return self.vol_of_vol * np.sqrt(current_state)
+
+
+class HestonSpotProcess(StochasticProcess):
+    def __init__(self, spot: float, rate: float, vol: float = 1.0):
+        self.spot = spot
+        self.vol = vol
+        self.rate = rate
+
+    def correlation_matrix(self) -> np.ndarray:
+        return np.array([1])
+
+    def initial_state(self) -> np.ndarray:
+        return np.array(np.log(self.spot))
+
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
+        return self.rate - 0.5 * current_state * self.vol**2
+
+    def volatility(
+        self, time: float, current_state: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        current_var = current_state
+        return self.vol * np.sqrt(current_var)
+
+
+class HestonCompositeProcess(StochasticProcess):
+    def __init__(
+        self,
+        spot: HestonSpotProcess,
+        vol: OrnsteinUhlenbeckProcess,
+        spot_vol_corr: float,
+    ):
+        self.spot_process = spot
+        self.vol_process = vol
+        self._correlation_matrix = np.array(
+            [[1.0, spot_vol_corr], [spot_vol_corr, 1.0]]
+        )
+
+    def correlation_matrix(self) -> np.ndarray:
+        return self._correlation_matrix
+
+    def initial_state(self) -> np.ndarray:
+        return np.array(
+            [self.spot_process.initial_state(), self.vol_process.initial_state()]
+        )
+
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
+        current_vol = np.abs(current_state[:, 1])
+        # current_vol = current_state[:, 1]
+        # TODO: remove spot_drift current_state by refactoring StochasticProcess and have dimensional type hints
+        spot_drift = self.spot_process.drift(time, current_state=current_vol)
+        vol_drift = self.vol_process.drift(time, current_state=current_vol)
+        return np.array([spot_drift, vol_drift]).T
+
+    def volatility(
+        self, time: float, current_state: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        current_vol = np.abs(current_state[:, 1])
+        # current_vol = current_state[:, 1]
+        spot_vol = self.spot_process.volatility(time, current_state=current_vol)
+        vol_of_vol = self.vol_process.volatility(time, current_state=current_vol)
+        return np.array([spot_vol, vol_of_vol]).T
 
 
 class HestonParameters(BaseModel):
@@ -19,7 +113,7 @@ class HestonParameters(BaseModel):
 
 
 class SolverParameters(BaseModel):
-    beta_root_sign: RootSign
+    d_root_sign: RootSign
 
 
 class HestonODEs(CharacteristicFunctionODEs):
@@ -31,7 +125,7 @@ class HestonODEs(CharacteristicFunctionODEs):
         self.params = params
         if not solver_params:
             solver_params = SolverParameters(
-                beta_root_sign=RootSign.PLUS,
+                d_root_sign=RootSign.MINUS,
             )
         self.solver_params = solver_params
 
@@ -94,7 +188,9 @@ class HestonODEs(CharacteristicFunctionODEs):
             vol.mean_reversion_rate - 1j * u * vol.volatility * corr.spot_vol
         )
 
-        d_term = (kappa_rho_sigma**2 + vol.volatility**2 * (u**2 + 1j * u)) ** 0.5
+        d_term = self.solver_params.d_root_sign * (
+            (kappa_rho_sigma**2 + vol.volatility**2 * (u**2 + 1j * u)) ** 0.5
+        )
         g_term = (kappa_rho_sigma + d_term) / (kappa_rho_sigma - d_term)
 
         return (d_term, g_term, kappa_rho_sigma)
@@ -134,7 +230,7 @@ class HestonODEs(CharacteristicFunctionODEs):
         )
 
 
-class HestonModel(PricingModel):
+class HestonModel(PricingModel, SimulatableModel):
     characteristic_function_odes: HestonODEs
 
     def __init__(
@@ -144,6 +240,26 @@ class HestonModel(PricingModel):
         self.ode_solver = ode_solver
 
         self.characteristic_function_odes = HestonODEs(params)
+
+        heston_process = HestonSpotProcess(
+            spot=params.spot.value, rate=params.rate.value, vol=params.spot.volatility
+        )
+
+        vol_process = OrnsteinUhlenbeckProcess(
+            initial_variance=params.volatility.value**2,
+            mean_reversion_rate=params.volatility.mean_reversion_rate,
+            long_term_mean=params.volatility.long_term_mean**2,
+            vol_of_vol=params.volatility.volatility,
+        )
+
+        self.process = HestonCompositeProcess(
+            spot=heston_process,
+            vol=vol_process,
+            spot_vol_corr=params.correlation.spot_vol,
+        )
+
+    def zero_coupon_bond(self, time_to_expiry) -> float:
+        return np.exp(-self.params.rate.value * time_to_expiry)
 
     def characteristic_function(
         self,

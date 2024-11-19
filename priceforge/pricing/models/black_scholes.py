@@ -1,5 +1,4 @@
-from typing import Union
-from warnings import warn
+from typing import Optional, Union
 import numpy as np
 from pydantic import BaseModel
 from scipy.stats import norm
@@ -25,15 +24,19 @@ class GeometricBrownianMotion(StochasticProcess):
         self.spot = spot
         self.vol = volatility
         self.rate = rate
+        self._correlation_matrix = np.array([[1]])
 
-    def initial_value(self) -> float:
+    def correlation_matrix(self) -> np.ndarray:
+        return self._correlation_matrix
+
+    def initial_state(self) -> np.ndarray:
         return np.log(self.spot)
 
-    def drift(self, time: float, current_value: np.ndarray) -> Union[float, np.ndarray]:
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
         return self.rate - self.vol**2 / 2
 
     def volatility(
-        self, time: float, current_value: np.ndarray
+        self, time: float, current_state: np.ndarray
     ) -> Union[float, np.ndarray]:
         return self.vol
 
@@ -85,3 +88,20 @@ class BlackScholesModel(ClosedFormModel, SimulatableModel):
 
     def zero_coupon_bond(self, time_to_expiry):
         return np.exp(-self.params.rate.value * time_to_expiry)
+
+    # def characteristic_function(
+    #     self,
+    #     u: complex,
+    #     time_to_option_expiry: float,
+    #     time_to_underlying_expiry: Optional[float],
+    # ) -> complex:
+    #     if u == 0.0 + 0.0j:
+    #         return 1.0 + 0.0j
+    #
+    #     spot = self.params.spot.value
+    #     vol = self.params.spot.volatility
+    #     rate = self.params.rate.value
+    #     return np.exp(
+    #         1j * u * (np.log(spot) + (rate - vol**2 / 2) * time_to_option_expiry)
+    #         + (vol * u) ** 2 / 2 * time_to_option_expiry
+    #     )
