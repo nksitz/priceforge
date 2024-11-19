@@ -4,8 +4,8 @@ from typing import Optional
 import numpy as np
 from scipy import integrate
 
-from src.models.contracts import Forward, Option
-from src.pricing.models.protocol import PricingModel
+from priceforge.models.contracts import Forward, Option
+from priceforge.pricing.models.protocol import PricingModel
 
 SECONDS_IN_A_YEAR = 365 * 24 * 60 * 60
 

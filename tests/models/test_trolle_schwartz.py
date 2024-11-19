@@ -1,14 +1,14 @@
 import pytest
 import numpy as np
 
-from src.pricing.models.parameters import (
+from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
     ForwardParameters,
     SpotParameters,
     VolatilityParameters,
 )
-from src.pricing.models.trolle_schwartz import (
+from priceforge.pricing.models.trolle_schwartz import (
     TrolleSchwartzODEs,
     TrolleSchwartzParameters,
 )

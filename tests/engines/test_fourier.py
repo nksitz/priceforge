@@ -1,9 +1,9 @@
 import datetime as dt
 from numpy.testing import assert_almost_equal
 
-from src.models.contracts import Option, OptionKind, Spot
-from src.pricing.engines.fourier import FourierEngine, FourierMethod
-from src.pricing.models.heston import (
+from priceforge.models.contracts import Option, OptionKind, Spot
+from priceforge.pricing.engines.fourier import FourierEngine, FourierMethod
+from priceforge.pricing.models.heston import (
     HestonModel,
     HestonParameters,
     SpotParameters,

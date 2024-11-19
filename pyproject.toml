@@ -1,6 +1,6 @@
 [project]
 name = "priceforge"
-version = "0.0.1"
+version = "0.0.3"
 authors = [
   { name="Nicolò Sitzia", email="nksitz@gmail.com" },
 ]

@@ -2,15 +2,15 @@ from typing import Callable, Optional
 import numpy as np
 from pydantic import BaseModel
 
-from src.pricing.models.ode_solver import OdeSolver, RootSign
-from src.pricing.models.parameters import (
+from priceforge.pricing.models.ode_solver import OdeSolver, RootSign
+from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
     ForwardParameters,
     SpotParameters,
     VolatilityParameters,
 )
-from src.pricing.models.protocol import CharacteristicFunctionODEs, PricingModel
+from priceforge.pricing.models.protocol import CharacteristicFunctionODEs, PricingModel
 import mpmath
 
 

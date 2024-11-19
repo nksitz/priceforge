@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src.pricing.models.heston import (
+from priceforge.pricing.models.heston import (
     HestonODEs,
     HestonParameters,
     HestonModel,
