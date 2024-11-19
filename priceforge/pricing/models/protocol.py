@@ -40,6 +40,8 @@ class SimulatableModel(Protocol[P]):
 
 
 class PricingModel(Protocol):
+    def zero_coupon_bond(self, time_to_expiry) -> float: ...
+
     def characteristic_function(
         self,
         u: complex,

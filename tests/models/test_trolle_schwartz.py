@@ -5,6 +5,7 @@ from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
     ForwardParameters,
+    RateParameters,
     SpotParameters,
     VolatilityParameters,
 )
@@ -17,9 +18,9 @@ from priceforge.pricing.models.trolle_schwartz import (
 @pytest.fixture
 def trolle_schwartz_params():
     volatility_params = {
-        "value": 0.04**0.5,  # sqrt(v0)
+        "value": 0.2**0.5,  # sqrt(v0)
         "mean_reversion_rate": 1.5,  # kappa
-        "long_term_mean": 0.04**0.5,  # sqrt(theta)
+        "long_term_mean": 0.2**0.5,  # sqrt(theta)
         "volatility": 0.3,  # sigma/vol of vol
     }
 
@@ -46,6 +47,7 @@ def trolle_schwartz_params():
         spot=SpotParameters(**spot_params),
         forward=ForwardParameters(**forward_params),
         cost_of_carry=CostOfCarryParameters(**cost_of_carry_params),
+        rate=RateParameters(value=0.0),
         correlation=CorrelationParameters(**correlation_params),
     )
 

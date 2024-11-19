@@ -1,16 +1,22 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 import numpy as np
 from pydantic import BaseModel
 
+from priceforge.pricing.models.heston import HestonSpotProcess, OrnsteinUhlenbeckProcess
 from priceforge.pricing.models.ode_solver import OdeSolver, RootSign
 from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
     ForwardParameters,
+    RateParameters,
     SpotParameters,
     VolatilityParameters,
 )
-from priceforge.pricing.models.protocol import CharacteristicFunctionODEs, PricingModel
+from priceforge.pricing.models.protocol import (
+    CharacteristicFunctionODEs,
+    PricingModel,
+    StochasticProcess,
+)
 import mpmath
 
 
@@ -32,7 +38,83 @@ class TrolleSchwartzParameters(BaseModel):
     forward: ForwardParameters
     volatility: VolatilityParameters
     cost_of_carry: CostOfCarryParameters
+    rate: RateParameters
     correlation: CorrelationParameters
+
+
+class CostOfCarryProcess(StochasticProcess):
+    def __init__(self, alpha: float, gamma: float):
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def correlation_matrix(self) -> np.ndarray:
+        return np.array([1])
+
+    def initial_state(self) -> np.ndarray:
+        return np.array(self.initial_cost_of_carry)
+
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
+        pass
+
+    def volatility(
+        self, time: float, current_state: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        pass
+
+
+class TrolleSchwartzCompositeProcess(StochasticProcess):
+    def __init__(
+        self,
+        spot: HestonSpotProcess,
+        vol: OrnsteinUhlenbeckProcess,
+        cost_of_carry: CostOfCarryProcess,
+        spot_vol_corr: float,
+        spot_cost_of_carry_corr: float,
+        vol_cost_of_carry_corr: float,
+    ):
+        self.spot_process = spot
+        self.vol_process = vol
+        self.cost_of_carry_process = cost_of_carry
+
+        self._correlation_matrix = np.array(
+            [
+                [1.0, spot_vol_corr, spot_cost_of_carry_corr],
+                [spot_vol_corr, 1.0, vol_cost_of_carry_corr],
+                [spot_cost_of_carry_corr, vol_cost_of_carry_corr, 1],
+            ]
+        )
+
+    def correlation_matrix(self) -> np.ndarray:
+        return self._correlation_matrix
+
+    def initial_state(self) -> np.ndarray:
+        return np.array(
+            [
+                self.spot_process.initial_state(),
+                self.vol_process.initial_state(),
+                self.cost_of_carry_process.initial_state(),
+            ]
+        )
+
+    def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
+        current_vol = np.abs(current_state[:, 1])
+        spot_drift = self.spot_process.drift(time, current_state=current_vol)
+        vol_drift = self.vol_process.drift(time, current_state=current_vol)
+        cost_of_carry_drift = self.cost_of_carry_process.drift(
+            time, current_state=current_vol
+        )
+        return np.array([spot_drift, vol_drift, cost_of_carry_drift]).T
+
+    def volatility(
+        self, time: float, current_state: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        current_vol = np.abs(current_state[:, 1])
+        spot_vol = self.spot_process.volatility(time, current_state=current_vol)
+        vol_of_vol = self.vol_process.volatility(time, current_state=current_vol)
+        cost_of_carry_vol = self.cost_of_carry_process.volatility(
+            time, current_state=current_vol
+        )
+        return np.array([spot_vol, vol_of_vol, cost_of_carry_vol]).T
 
 
 class TrolleSchwartzODEs(CharacteristicFunctionODEs):
@@ -77,7 +159,7 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
             )
 
             upper_c_prime = (
-                upper_d * volatility.mean_reversion_rate * volatility.long_term_mean
+                upper_d * volatility.mean_reversion_rate * volatility.long_term_mean**2
             )
             upper_d_prime = (
                 -0.5
@@ -220,7 +302,7 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
         upper_c = (
             -2
             * volatility.mean_reversion_rate
-            * volatility.long_term_mean
+            * volatility.long_term_mean**2
             / volatility.volatility**2
             * (
                 beta * mpmath.log(omega * z)
@@ -245,6 +327,30 @@ class TrolleSchwartzModel(PricingModel):
         self.ode_solver = ode_solver
 
         self.characteristic_function_odes = TrolleSchwartzODEs(params)
+
+        # heston_process = HestonSpotProcess(
+        #     spot=params.spot.value, rate=0, vol=params.spot.volatility
+        # )
+        #
+        # vol_process = OrnsteinUhlenbeckProcess(
+        #     initial_variance=params.volatility.value**2,
+        #     mean_reversion_rate=params.volatility.mean_reversion_rate,
+        #     long_term_mean=params.volatility.long_term_mean**2,
+        #     vol_of_vol=params.volatility.volatility,
+        # )
+        #
+        # cost_of_carry_process = CostOfCarryProcess(
+        #     alpha=params.cost_of_carry.alpha, gamma=params.cost_of_carry.gamma
+        # )
+        #
+        # self.process = TrolleSchwartzCompositeProcess(
+        #     spot=heston_process,
+        #     vol=vol_process,
+        #     cost_of_carry=cost_of_carry_process,
+        #     spot_vol_corr=params.correlation.spot_vol,
+        #     spot_cost_of_carry_corr=params.correlation.spot_cost_of_carry,
+        #     vol_cost_of_carry_corr=params.correlation.vol_cost_of_carry,
+        # )
 
     def characteristic_function(
         self,
@@ -271,3 +377,9 @@ class TrolleSchwartzModel(PricingModel):
             + 1j * u * np.log(self.params.forward.value)
         )
         return psi
+
+    def forward(self, time_to_expiry) -> float:
+        return self.params.forward.value
+
+    def zero_coupon_bond(self, time_to_expiry) -> float:
+        return np.exp(-self.params.rate.value * time_to_expiry)

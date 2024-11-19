@@ -24,7 +24,7 @@ from priceforge.pricing.models.parameters import (
 
 
 def generate_random_test_cases(n=50):
-    # np.random.seed(0)
+    np.random.seed(0)
     test_cases = []
 
     for _ in range(n):

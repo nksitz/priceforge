@@ -52,7 +52,8 @@ class FourierEngine:
         """
         tau = (option.expiry - initial_time).total_seconds() / SECONDS_IN_A_YEAR
         strike = option.strike
-        rate = model.params.rate.value
+
+        zero_coupon_bond = model.zero_coupon_bond(tau)
 
         if isinstance(option.underlying, Forward):
             time_to_underlying_expiry = (
@@ -85,7 +86,7 @@ class FourierEngine:
         integral, _ = integrate.quad(integrand, 0, truncation)
 
         price = (
-            np.exp(-rate * tau)
+            zero_coupon_bond
             * np.exp(-dampening_factor * np.log(strike))
             / np.pi
             * integral
@@ -101,8 +102,7 @@ class FourierEngine:
 
         tau = (option.expiry - initial_time).total_seconds() / SECONDS_IN_A_YEAR
         strike = option.strike
-        spot = model.params.spot.value
-        rate = model.params.rate.value
+        zero_coupon_bond = model.zero_coupon_bond(tau)
 
         if isinstance(option.underlying, Forward):
             time_to_underlying_expiry = (
@@ -143,6 +143,7 @@ class FourierEngine:
         P2 = 0.5 + P2 / np.pi
 
         # Calculate call price
-        price = spot * P1 - strike * np.exp(-rate * tau) * P2
+        price = (model.forward(tau) * P1 - strike * P2) * zero_coupon_bond
+        # price = spot * P1 - strike * zero_coupon_bond * P2
 
         return max(0, price)

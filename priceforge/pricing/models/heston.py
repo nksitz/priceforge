@@ -89,8 +89,6 @@ class HestonCompositeProcess(StochasticProcess):
 
     def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
         current_vol = np.abs(current_state[:, 1])
-        # current_vol = current_state[:, 1]
-        # TODO: remove spot_drift current_state by refactoring StochasticProcess and have dimensional type hints
         spot_drift = self.spot_process.drift(time, current_state=current_vol)
         vol_drift = self.vol_process.drift(time, current_state=current_vol)
         return np.array([spot_drift, vol_drift]).T
@@ -99,7 +97,6 @@ class HestonCompositeProcess(StochasticProcess):
         self, time: float, current_state: np.ndarray
     ) -> Union[float, np.ndarray]:
         current_vol = np.abs(current_state[:, 1])
-        # current_vol = current_state[:, 1]
         spot_vol = self.spot_process.volatility(time, current_state=current_vol)
         vol_of_vol = self.vol_process.volatility(time, current_state=current_vol)
         return np.array([spot_vol, vol_of_vol]).T
@@ -260,6 +257,9 @@ class HestonModel(PricingModel, SimulatableModel):
 
     def zero_coupon_bond(self, time_to_expiry) -> float:
         return np.exp(-self.params.rate.value * time_to_expiry)
+
+    def forward(self, time_to_expiry) -> float:
+        return self.params.spot.value / self.zero_coupon_bond(time_to_expiry)
 
     def characteristic_function(
         self,
