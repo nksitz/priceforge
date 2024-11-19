@@ -1,3 +1,5 @@
+from typing import Union
+from warnings import warn
 import numpy as np
 from pydantic import BaseModel
 from scipy.stats import norm
@@ -6,7 +8,11 @@ from priceforge.pricing.models.parameters import (
     SpotParameters,
     RateParameters,
 )
-from priceforge.pricing.models.protocol import ClosedFormModel
+from priceforge.pricing.models.protocol import (
+    ClosedFormModel,
+    SimulatableModel,
+    StochasticProcess,
+)
 
 
 class BlackScholesParameters(BaseModel):
@@ -14,9 +20,34 @@ class BlackScholesParameters(BaseModel):
     rate: RateParameters
 
 
-class BlackScholesModel(ClosedFormModel):
+class GeometricBrownianMotion(StochasticProcess):
+    def __init__(self, spot: float, volatility: float, rate: float):
+        self.spot = spot
+        self.vol = volatility
+        self.rate = rate
+
+    def initial_value(self) -> float:
+        return np.log(self.spot)
+
+    def drift(self, time: float, current_value: np.ndarray) -> Union[float, np.ndarray]:
+        return self.rate - self.vol**2 / 2
+
+    def volatility(
+        self, time: float, current_value: np.ndarray
+    ) -> Union[float, np.ndarray]:
+        return self.vol
+
+
+class BlackScholesModel(ClosedFormModel, SimulatableModel):
+    process: GeometricBrownianMotion
+
     def __init__(self, params: BlackScholesParameters) -> None:
         self.params = params
+        self.process = GeometricBrownianMotion(
+            spot=params.spot.value,
+            volatility=params.spot.volatility,
+            rate=params.rate.value,
+        )
 
     def price(
         self,

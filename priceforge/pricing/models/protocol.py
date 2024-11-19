@@ -1,5 +1,6 @@
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Any, Callable, Optional, Protocol, TypeVar, Union, runtime_checkable
 
+import numpy as np
 from scipy.integrate import solve_ivp
 
 from priceforge.models.contracts import OptionKind
@@ -10,6 +11,27 @@ class ClosedFormModel(Protocol):
     def price(
         self, time_to_expiry: float, strike: float, option_kind: OptionKind
     ) -> float: ...
+
+
+class StochasticProcess(Protocol):
+    def initial_value(self) -> float: ...
+
+    def drift(
+        self, time: float, current_value: np.ndarray
+    ) -> Union[float, np.ndarray]: ...
+
+    def volatility(
+        self, time: float, current_value: np.ndarray
+    ) -> Union[float, np.ndarray]: ...
+
+
+P = TypeVar("P", bound=StochasticProcess)
+
+
+class SimulatableModel(Protocol[P]):
+    process: P
+
+    def zero_coupon_bond(self, time_to_expiry) -> float: ...
 
 
 class PricingModel(Protocol):
