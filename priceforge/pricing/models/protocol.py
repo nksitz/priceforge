@@ -1,6 +1,15 @@
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from scipy.integrate import solve_ivp
+
+from priceforge.models.contracts import OptionKind
+
+
+@runtime_checkable
+class ClosedFormModel(Protocol):
+    def price(
+        self, time_to_expiry: float, strike: float, option_kind: OptionKind
+    ) -> float: ...
 
 
 class PricingModel(Protocol):

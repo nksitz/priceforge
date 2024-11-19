@@ -8,6 +8,7 @@ class SpotParameters(BaseModel):
 
 class ForwardParameters(BaseModel):
     value: float
+    volatility: float = 1.0
 
 
 class RateParameters(BaseModel):

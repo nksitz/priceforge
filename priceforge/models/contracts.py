@@ -4,16 +4,20 @@ from typing import Union
 
 from pydantic import BaseModel
 
+
 class Spot(BaseModel):
     symbol: str
+
 
 class Forward(BaseModel):
     underlying: Spot
     expiry: dt.datetime
 
+
 class OptionKind(Enum):
-    CALL = auto()
-    PUT = auto()
+    CALL = "CALL"
+    PUT = "PUT"
+
 
 class Option(BaseModel):
     underlying: Union[Spot, Forward]
