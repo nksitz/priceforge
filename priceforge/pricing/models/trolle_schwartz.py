@@ -3,7 +3,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from priceforge.pricing.models.heston import HestonSpotProcess, OrnsteinUhlenbeckProcess
-from priceforge.pricing.models.ode_solver import OdeSolver, RootSign
+from priceforge.pricing.models.ode_solver import OdeSolution, RootSign
 from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     CostOfCarryParameters,
@@ -29,17 +29,19 @@ def tricomi(a, b, x):
 
 
 class SolverParameters(BaseModel):
-    beta_root_sign: RootSign
-    omega_root_sign: RootSign
+    beta_root_sign: RootSign = RootSign.MINUS
+    omega_root_sign: RootSign = RootSign.MINUS
 
 
 class TrolleSchwartzParameters(BaseModel):
-    spot: SpotParameters
-    forward: ForwardParameters
-    volatility: VolatilityParameters
-    cost_of_carry: CostOfCarryParameters
-    rate: RateParameters
-    correlation: CorrelationParameters
+    spot: SpotParameters = SpotParameters()
+    forward: ForwardParameters = ForwardParameters()
+    volatility: VolatilityParameters = VolatilityParameters()
+    cost_of_carry: CostOfCarryParameters = CostOfCarryParameters()
+    rate: RateParameters = RateParameters()
+    correlation: CorrelationParameters = CorrelationParameters()
+    ode_solution: OdeSolution = OdeSolution.NUMERICAL
+    analytical_solution: SolverParameters = SolverParameters()
 
 
 class CostOfCarryProcess(StochasticProcess):
@@ -51,15 +53,15 @@ class CostOfCarryProcess(StochasticProcess):
         return np.array([1])
 
     def initial_state(self) -> np.ndarray:
-        return np.array(self.initial_cost_of_carry)
+        return np.array(np.nan)
 
     def drift(self, time: float, current_state: np.ndarray) -> Union[float, np.ndarray]:
-        pass
+        return np.nan
 
     def volatility(
         self, time: float, current_state: np.ndarray
     ) -> Union[float, np.ndarray]:
-        pass
+        return np.nan
 
 
 class TrolleSchwartzCompositeProcess(StochasticProcess):
@@ -121,14 +123,8 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
     def __init__(
         self,
         params: TrolleSchwartzParameters,
-        solver_params: Optional[SolverParameters] = None,
     ):
         self.params = params
-        if not solver_params:
-            solver_params = SolverParameters(
-                beta_root_sign=RootSign.PLUS, omega_root_sign=RootSign.PLUS
-            )
-        self.solver_params = solver_params
 
     def odes(
         self,
@@ -199,8 +195,8 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
         volatility = self.params.volatility
         cost_of_carry = self.params.cost_of_carry
         correlation = self.params.correlation
-        beta_pm = self.solver_params.beta_root_sign.value
-        omega_pm = self.solver_params.omega_root_sign.value
+        beta_pm = self.params.analytical_solution.beta_root_sign.value
+        omega_pm = self.params.analytical_solution.omega_root_sign.value
 
         c_0 = -volatility.mean_reversion_rate + 1j * u * volatility.volatility * (
             spot.volatility * correlation.spot_vol
@@ -316,15 +312,14 @@ class TrolleSchwartzODEs(CharacteristicFunctionODEs):
 
 
 class TrolleSchwartzModel(PricingModel):
+    params_class = TrolleSchwartzParameters
     characteristic_function_odes: TrolleSchwartzODEs
 
     def __init__(
         self,
         params: TrolleSchwartzParameters,
-        ode_solver: OdeSolver = OdeSolver.ANALYTICAL,
     ):
         self.params = params
-        self.ode_solver = ode_solver
 
         self.characteristic_function_odes = TrolleSchwartzODEs(params)
 
@@ -361,12 +356,12 @@ class TrolleSchwartzModel(PricingModel):
         if u == 0.0 + 0.0j:
             return 1.0 + 0.0j
 
-        match self.ode_solver:
-            case OdeSolver.ANALYTICAL:
+        match self.params.ode_solution:
+            case OdeSolution.ANALYTICAL:
                 upper_c, upper_d = self.characteristic_function_odes.analytical_soluton(
                     u, time_to_option_expiry, time_to_underlying_expiry
                 )
-            case OdeSolver.NUMERICAL:
+            case OdeSolution.NUMERICAL:
                 upper_c, upper_d = self.characteristic_function_odes.numerical_solution(
                     u, time_to_option_expiry, time_to_underlying_expiry
                 )

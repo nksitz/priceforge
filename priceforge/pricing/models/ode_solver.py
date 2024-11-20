@@ -1,9 +1,9 @@
 from enum import Enum, IntEnum
 
 
-class OdeSolver(Enum):
-    ANALYTICAL = "analytical"
-    NUMERICAL = "numerical"
+class OdeSolution(Enum):
+    ANALYTICAL = "ANALYTICAL"
+    NUMERICAL = "NUMERICAL"
 
 
 class RootSign(IntEnum):

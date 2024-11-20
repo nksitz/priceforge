@@ -15,8 +15,8 @@ from priceforge.pricing.models.protocol import (
 
 
 class BlackScholesParameters(BaseModel):
-    spot: SpotParameters
-    rate: RateParameters
+    spot: SpotParameters = SpotParameters()
+    rate: RateParameters = RateParameters()
 
 
 class GeometricBrownianMotion(StochasticProcess):
@@ -42,6 +42,7 @@ class GeometricBrownianMotion(StochasticProcess):
 
 
 class BlackScholesModel(ClosedFormModel, SimulatableModel):
+    params_class = BlackScholesParameters
     process: GeometricBrownianMotion
 
     def __init__(self, params: BlackScholesParameters) -> None:

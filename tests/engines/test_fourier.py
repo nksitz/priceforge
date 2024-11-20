@@ -4,7 +4,11 @@ from numpy.testing import assert_almost_equal
 
 from priceforge.models.contracts import Forward, Option, OptionKind, Spot
 from priceforge.pricing.engines.closed_form import ClosedFormEngine
-from priceforge.pricing.engines.fourier import FourierEngine, FourierMethod
+from priceforge.pricing.engines.fourier import (
+    FourierEngine,
+    FourierMethod,
+    FourierParameters,
+)
 from priceforge.pricing.models import ode_solver
 from priceforge.pricing.models.black_scholes import (
     BlackScholesModel,
@@ -18,7 +22,6 @@ from priceforge.pricing.models.heston import (
     RateParameters,
     CorrelationParameters,
 )
-from priceforge.pricing.models.ode_solver import OdeSolver
 from priceforge.pricing.models.parameters import (
     CostOfCarryParameters,
     ForwardParameters,
@@ -82,11 +85,11 @@ def test_heston(rate, volatility, vol_of_vol, correlation, expected_price):
             rate=rate_params,
             volatility=vol_params,
             correlation=corr_params,
+            ode_solution="ANALYTICAL",
         ),
-        ode_solver=OdeSolver.ANALYTICAL,
     )
 
-    engine = FourierEngine(method=FourierMethod.HESTON_ORIGINAL)
+    engine = FourierEngine(FourierParameters())
 
     initial_time = dt.datetime(1900, 1, 1)
     expiry = initial_time + dt.timedelta(days=365)
@@ -138,11 +141,11 @@ def test_trolle_schwartz(forward, years, expected_price):
         cost_of_carry=cost_of_carry_params,
         rate=rate_params,
         correlation=corr_params,
+        ode_solution="NUMERICAL",
     )
 
-    model = TrolleSchwartzModel(ts_params, ode_solver=OdeSolver.NUMERICAL)
-    engine = FourierEngine(method=FourierMethod.HESTON_ORIGINAL)
-    engine.integration_params["alpha"] = 0.75
+    model = TrolleSchwartzModel(ts_params)
+    engine = FourierEngine(FourierParameters())
 
     initial_time = dt.datetime(2017, 4, 13)
     option_expiry = initial_time + dt.timedelta(days=365 * years + 15)

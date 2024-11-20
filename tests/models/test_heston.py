@@ -4,7 +4,6 @@ from priceforge.pricing.models.heston import (
     HestonODEs,
     HestonParameters,
     HestonModel,
-    OdeSolver,
     VolatilityParameters,
     SpotParameters,
     RateParameters,
@@ -39,6 +38,7 @@ def heston_params():
         spot=SpotParameters(**spot_params),
         rate=RateParameters(**rate_params),
         correlation=CorrelationParameters(**correlation_params),
+        ode_solution="ANALYTICAL",
     )
 
 

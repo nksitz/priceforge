@@ -16,6 +16,8 @@ class MonteCarloParameters(BaseModel):
 
 
 class MonteCarloEngine:
+    params_class = MonteCarloParameters
+
     def __init__(self, params: MonteCarloParameters):
         self.params = params
 

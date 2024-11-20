@@ -4,8 +4,11 @@ from numpy.testing import assert_almost_equal
 import pytest
 
 from priceforge.models.contracts import Option, OptionKind, Spot
-from priceforge.pricing.engines.closed_form import ClosedFormEngine
-from priceforge.pricing.engines.fourier import FourierEngine
+from priceforge.pricing.engines.closed_form import (
+    ClosedFormEngine,
+    ClosedFormParameters,
+)
+from priceforge.pricing.engines.fourier import FourierEngine, FourierParameters
 from priceforge.pricing.engines.monte_carlo import (
     MonteCarloEngine,
     MonteCarloParameters,
@@ -53,7 +56,7 @@ def test_monte_carlo(spot, strike, time_to_expiry, rate, vol, option_kind):
         BlackScholesParameters(spot=spot_parameters, rate=rate_parameters)
     )
 
-    cf_engine = ClosedFormEngine()
+    cf_engine = ClosedFormEngine(params=ClosedFormParameters())
     mc_engine = MonteCarloEngine(
         MonteCarloParameters(n_steps=1, n_paths=1_000_000, antithetic_variates=False)
     )
@@ -110,7 +113,7 @@ def test_monte_carlo_2d(correlation, expected_price):
     )
 
     price = engine.price(model, option, valuation_time)
-    four_pr = FourierEngine().price(model, option, valuation_time)
+    four_pr = FourierEngine(FourierParameters()).price(model, option, valuation_time)
     print(four_pr)
 
     assert_almost_equal(price, expected_price, decimal=1)

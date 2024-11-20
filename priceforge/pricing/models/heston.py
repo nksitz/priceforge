@@ -1,7 +1,7 @@
 import numpy as np
 from pydantic import BaseModel
 from typing import Optional, Callable, Union
-from priceforge.pricing.models.ode_solver import OdeSolver, RootSign
+from priceforge.pricing.models.ode_solver import OdeSolution, RootSign
 from priceforge.pricing.models.parameters import (
     CorrelationParameters,
     RateParameters,
@@ -102,29 +102,25 @@ class HestonCompositeProcess(StochasticProcess):
         return np.array([spot_vol, vol_of_vol]).T
 
 
-class HestonParameters(BaseModel):
-    spot: SpotParameters
-    rate: RateParameters
-    volatility: VolatilityParameters
-    correlation: CorrelationParameters
-
-
 class SolverParameters(BaseModel):
-    d_root_sign: RootSign
+    d_root_sign: RootSign = RootSign.MINUS
+
+
+class HestonParameters(BaseModel):
+    spot: SpotParameters = SpotParameters()
+    rate: RateParameters = RateParameters()
+    volatility: VolatilityParameters = VolatilityParameters()
+    correlation: CorrelationParameters = CorrelationParameters()
+    ode_solution: OdeSolution = OdeSolution.ANALYTICAL
+    analytical_soluton: SolverParameters = SolverParameters()
 
 
 class HestonODEs(CharacteristicFunctionODEs):
     def __init__(
         self,
         params: HestonParameters,
-        solver_params: Optional[SolverParameters] = None,
     ):
         self.params = params
-        if not solver_params:
-            solver_params = SolverParameters(
-                d_root_sign=RootSign.MINUS,
-            )
-        self.solver_params = solver_params
 
     def odes(
         self,
@@ -185,7 +181,7 @@ class HestonODEs(CharacteristicFunctionODEs):
             vol.mean_reversion_rate - 1j * u * vol.volatility * corr.spot_vol
         )
 
-        d_term = self.solver_params.d_root_sign * (
+        d_term = self.params.analytical_soluton.d_root_sign * (
             (kappa_rho_sigma**2 + vol.volatility**2 * (u**2 + 1j * u)) ** 0.5
         )
         g_term = (kappa_rho_sigma + d_term) / (kappa_rho_sigma - d_term)
@@ -228,13 +224,11 @@ class HestonODEs(CharacteristicFunctionODEs):
 
 
 class HestonModel(PricingModel, SimulatableModel):
+    params_class = HestonParameters
     characteristic_function_odes: HestonODEs
 
-    def __init__(
-        self, params: HestonParameters, ode_solver: OdeSolver = OdeSolver.ANALYTICAL
-    ):
+    def __init__(self, params: HestonParameters):
         self.params = params
-        self.ode_solver = ode_solver
 
         self.characteristic_function_odes = HestonODEs(params)
 
@@ -270,12 +264,12 @@ class HestonModel(PricingModel, SimulatableModel):
         if u == 0.0 + 0.0j:
             return 1.0 + 0.0j
 
-        match self.ode_solver:
-            case OdeSolver.ANALYTICAL:
+        match self.params.ode_solution:
+            case OdeSolution.ANALYTICAL:
                 upper_c, upper_d = self.characteristic_function_odes.analytical_soluton(
                     u, time_to_option_expiry, time_to_underlying_expiry
                 )
-            case OdeSolver.NUMERICAL:
+            case OdeSolution.NUMERICAL:
                 upper_c, upper_d = self.characteristic_function_odes.numerical_solution(
                     u, time_to_option_expiry, time_to_underlying_expiry
                 )

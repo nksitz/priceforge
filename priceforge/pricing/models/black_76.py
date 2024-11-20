@@ -10,11 +10,13 @@ from priceforge.pricing.models.protocol import ClosedFormModel
 
 
 class Black76Parameters(BaseModel):
-    forward: ForwardParameters
-    rate: RateParameters
+    forward: ForwardParameters = ForwardParameters()
+    rate: RateParameters = RateParameters()
 
 
 class Black76Model(ClosedFormModel):
+    params_class = Black76Parameters
+
     def __init__(self, params: Black76Parameters) -> None:
         self.params = params
 

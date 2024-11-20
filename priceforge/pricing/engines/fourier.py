@@ -1,7 +1,7 @@
 from enum import Enum
 import datetime as dt
-from typing import Optional
 import numpy as np
+from pydantic import BaseModel
 from scipy import integrate
 
 from priceforge.models.contracts import Forward, Option
@@ -11,21 +11,24 @@ SECONDS_IN_A_YEAR = 365 * 24 * 60 * 60
 
 
 class FourierMethod(Enum):
-    CARR_MADAN = "carr_madan"
-    HESTON_ORIGINAL = "heston_original"
+    CARR_MADAN = "CARR_MADAN"
+    HESTON_ORIGINAL = "HESTON_ORIGINAL"
+
+
+class FourierParameters(BaseModel):
+    method: FourierMethod = FourierMethod.CARR_MADAN
+    integral_truncation: int = 100
+    dampening_factor: float = 0.75  # for CARR_MADAN
 
 
 class FourierEngine:
+    params_class = FourierParameters
+
     def __init__(
         self,
-        method: FourierMethod = FourierMethod.HESTON_ORIGINAL,
-        integration_params: Optional[dict] = None,
+        params: FourierParameters,
     ):
-        self.method = method
-        self.integration_params = integration_params or {
-            "alpha": 1.1,  # Carr-Madan dampening factor
-            "truncation": 100.0,  # Integration truncation for non-FFT methods
-        }
+        self.params = params
 
     def price(
         self, model: PricingModel, option: Option, initial_time: dt.datetime
@@ -39,7 +42,7 @@ class FourierEngine:
         Returns:
             float: Option price
         """
-        if self.method == FourierMethod.CARR_MADAN:
+        if self.params.method == FourierMethod.CARR_MADAN:
             return self._carr_madan_price(model, option, initial_time)
         else:
             return self._heston_original_price(model, option, initial_time)
@@ -62,7 +65,7 @@ class FourierEngine:
         else:
             time_to_underlying_expiry = None
 
-        dampening_factor = self.integration_params["alpha"]
+        dampening_factor = self.params.dampening_factor
 
         def integrand(u: float) -> float:
             """Integrand for the first probability P1"""
@@ -82,7 +85,7 @@ class FourierEngine:
             temp = np.exp(-1j * u * np.log(strike)) * cf / denominator
             return temp.real
 
-        truncation = self.integration_params["truncation"]
+        truncation = self.params.integral_truncation
         integral, _ = integrate.quad(integrand, 0, truncation)
 
         price = (
@@ -134,7 +137,7 @@ class FourierEngine:
             return temp.real
 
         # Compute probabilities through numerical integration
-        truncation = self.integration_params["truncation"]
+        truncation = self.params.integral_truncation
 
         P1, _ = integrate.quad(integrand_p1, 0, truncation)
         P1 = 0.5 + P1 / np.pi
